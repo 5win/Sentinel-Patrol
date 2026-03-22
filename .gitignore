@@ -1,0 +1,76 @@
+# =========================
+# ROS2 build artifacts
+# =========================
+build/
+install/
+log/
+
+# colcon cache
+.colcon/
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# virtualenv
+venv/
+.env/
+.venv/
+
+# =========================
+# CMake / ament_cmake
+# =========================
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# =========================
+# VSCode / IDE
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# ROS bag files (optional)
+# =========================
+*.db3
+*.bag
+
+# =========================
+# Logs / debug
+# =========================
+*.log
+
+# =========================
+# Temporary files
+# =========================
+*.tmp
+*.temp
+
+# =========================
+# Gazebo
+# =========================
+*.world~
+*.model~
+gazebo_models/
+
+# =========================
+# Custom (optional)
+# =========================
+# dataset / outputs
+data/
+outputs/
+results/
