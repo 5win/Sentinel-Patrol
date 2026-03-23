@@ -3,6 +3,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
+from patrol_msgs.msg import FrontScan
 
 class ScanLogger(Node):
     def __init__(self):
@@ -25,6 +26,12 @@ class ScanLogger(Node):
             '/odom',
             self.odom_callback,
             1, 
+        )
+
+        self.front_scan_publisher = self.create_publisher(
+            FrontScan,
+            '/front_scan',
+            3,
         )
 
         self.timer = self.create_timer(0.5, self.timer_callback)
@@ -81,10 +88,19 @@ class ScanLogger(Node):
             f'vel={self.current_velocity:.3f} m/s'
         )
 
+        # custom message 생성
+        front_scan_msg = FrontScan()
+        front_scan_msg.status = self.status
+        front_scan_msg.min_range = self.min_range
+        front_scan_msg.current_velocity = self.current_velocity
+        
+
         if self.status != self.prev_status:
+            self.front_scan_publisher.publish(front_scan_msg)
             self.get_logger().warn(f'[STATE CHANGE] {log_msg}') 
             self.prev_status = self.status
         else:
+            self.front_scan_publisher.publish(front_scan_msg)
             self.get_logger().info(log_msg)
 
 
