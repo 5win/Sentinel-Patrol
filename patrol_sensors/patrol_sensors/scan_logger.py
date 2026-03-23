@@ -8,6 +8,11 @@ class ScanLogger(Node):
     def __init__(self):
         super().__init__('scan_logger')
 
+        self.min_range = None
+        self.status = 'safe'
+        self.prev_status = 'safe'
+        self.current_velocity = 0.0
+
         self.scan_subscription = self.create_subscription(
             LaserScan,
             '/scan',
@@ -22,7 +27,7 @@ class ScanLogger(Node):
             1, 
         )
 
-        self.current_velocity = 0.0
+        self.timer = self.create_timer(0.5, self.timer_callback)
 
 
     def scan_callback(self, msg: LaserScan):
@@ -51,28 +56,36 @@ class ScanLogger(Node):
             return
 
         # 전방 최소 거리
-        min_range = min(valid_ranges)
-        self.get_logger().info(f'Min range: {min_range:.3f} m')
+        self.min_range = min(valid_ranges)
 
         # 위험 상태 분류(safe, caution, danger)
         base_caution_dist = 0.4     # 0.1m/s x 4s = 0.4m
         base_danger_dist = 0.2      # 0.1m/s x 2s = 0.2m
-        if min_range > base_caution_dist + self.current_velocity * 4:
-            status = 'safe'
-        elif min_range > base_danger_dist + self.current_velocity * 2:
-            status = 'caution'
+        if self.min_range > base_caution_dist + self.current_velocity * 4:
+            self.status = 'safe'
+        elif self.min_range > base_danger_dist + self.current_velocity * 2:
+            self.status = 'caution'
         else:
-            status = 'danger'
+            self.status = 'danger'
         
-        self.get_logger().info(f'status: {status}')
-    
 
     def odom_callback(self, msg: Odometry):
         # 현재 속도 갱신
         self.current_velocity = msg.twist.twist.linear.x
-        # self.get_logger().info(f'Current velocity: {self.current_velocity:.3f} m/s')
 
+    def timer_callback(self):
 
+        log_msg = (
+            f'min_range={self.min_range:.3f} m |'
+            f'status={self.status} | '
+            f'vel={self.current_velocity:.3f} m/s'
+        )
+
+        if self.status != self.prev_status:
+            self.get_logger().warn(f'[STATE CHANGE] {log_msg}') 
+            self.prev_status = self.status
+        else:
+            self.get_logger().info(log_msg)
 
 
 def main():
