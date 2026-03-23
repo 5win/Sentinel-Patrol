@@ -13,7 +13,7 @@ class ScanLogger(Node):
             self.scan_callback,
             10,
         )
-    
+
     def scan_callback(self, msg: LaserScan):
 
         # 전방 범위의 라이다 값 추출
@@ -39,8 +39,20 @@ class ScanLogger(Node):
             self.get_logger().warn('No valid ranges detected')
             return
 
+        # 전방 최소 거리
         min_range = min(valid_ranges)
         self.get_logger().info(f'Min range: {min_range:.3f} m')
+
+        # 위험 상태 분류(safe, caution, danger)
+        if min_range > 1.3:     # 1.3m 이상
+            status = 'safe'
+        elif min_range > 0.78:  # 0.78m ~ 1.3m
+            status = 'caution'
+        else:                   # 0.78m 미만
+            status = 'danger'
+        
+        self.get_logger().info(f'status: {status}')
+
 
 
 def main():
