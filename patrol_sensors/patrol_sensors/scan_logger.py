@@ -2,17 +2,28 @@ import math
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
+from nav_msgs.msg import Odometry
 
 class ScanLogger(Node):
     def __init__(self):
         super().__init__('scan_logger')
 
-        self.subscription = self.create_subscription(
+        self.scan_subscription = self.create_subscription(
             LaserScan,
             '/scan',
             self.scan_callback,
             10,
         )
+
+        self.odom_subscription = self.create_subscription(
+            Odometry,
+            '/odom',
+            self.odom_callback,
+            1, 
+        )
+
+        self.current_velocity = 0.0
+
 
     def scan_callback(self, msg: LaserScan):
 
@@ -44,14 +55,23 @@ class ScanLogger(Node):
         self.get_logger().info(f'Min range: {min_range:.3f} m')
 
         # 위험 상태 분류(safe, caution, danger)
-        if min_range > 1.3:     # 1.3m 이상
+        base_caution_dist = 0.4     # 0.1m/s x 4s = 0.4m
+        base_danger_dist = 0.2      # 0.1m/s x 2s = 0.2m
+        if min_range > base_caution_dist + self.current_velocity * 4:
             status = 'safe'
-        elif min_range > 0.78:  # 0.78m ~ 1.3m
+        elif min_range > base_danger_dist + self.current_velocity * 2:
             status = 'caution'
-        else:                   # 0.78m 미만
+        else:
             status = 'danger'
         
         self.get_logger().info(f'status: {status}')
+    
+
+    def odom_callback(self, msg: Odometry):
+        # 현재 속도 갱신
+        self.current_velocity = msg.twist.twist.linear.x
+        # self.get_logger().info(f'Current velocity: {self.current_velocity:.3f} m/s')
+
 
 
 
