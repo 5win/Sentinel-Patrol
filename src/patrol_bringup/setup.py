@@ -1,8 +1,6 @@
 from setuptools import find_packages, setup
-import os
-from glob import glob
 
-package_name = 'patrol_sensors'
+package_name = 'patrol_bringup'
 
 setup(
     name=package_name,
@@ -14,10 +12,10 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),   # launch 파일용
     ],
-    install_requires=['setuptools', 'rclpy', 'sensor_msgs'],
+    install_requires=['setuptools'],
     zip_safe=True,
     maintainer='sgoh',
-    maintainer_email='sgoh@todo.todo',
+    maintainer_email='woozzoo7@gmail.com',
     description='TODO: Package description',
     license='TODO: License declaration',
     extras_require={
@@ -27,7 +25,6 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'scan_logger = patrol_sensors.scan_logger:main'
         ],
     },
 )
