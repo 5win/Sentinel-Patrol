@@ -14,6 +14,7 @@ class ScanLogger(Node):
         self.prev_status = 'safe'
         self.current_velocity = 0.0
 
+        # subscriber
         self.scan_subscription = self.create_subscription(
             LaserScan,
             '/scan',
@@ -28,6 +29,7 @@ class ScanLogger(Node):
             1, 
         )
 
+        # publisher
         self.front_scan_publisher = self.create_publisher(
             FrontScan,
             '/front_scan',
@@ -68,12 +70,42 @@ class ScanLogger(Node):
         # 위험 상태 분류(safe, caution, danger)
         base_caution_dist = 0.4     # 0.1m/s x 4s = 0.4m
         base_danger_dist = 0.2      # 0.1m/s x 2s = 0.2m
-        if self.min_range > base_caution_dist + self.current_velocity * 4:
-            self.status = 'safe'
-        elif self.min_range > base_danger_dist + self.current_velocity * 2:
-            self.status = 'caution'
-        else:
-            self.status = 'danger'
+        # if self.min_range > base_caution_dist + self.current_velocity * 4:
+        #     self.status = 'safe'
+        # elif self.min_range > base_danger_dist + self.current_velocity * 2:
+        #     self.status = 'caution'
+        # else:
+        #     self.status = 'danger'
+        
+
+        target_vel = 0.1
+        caution_th = base_caution_dist + target_vel * 4
+        danger_th = base_danger_dist + target_vel * 2
+        
+        # 센서 노이즈 및 로봇의 급정거 반동으로 인한 경계값 진동을 막기 위한 히스테리시스(마진) 적용
+        margin = 0.1 # 10cm 마진 (여유 반경)
+        
+        if self.status == 'danger':
+            if self.min_range > caution_th + margin:
+                self.status = 'safe'
+            elif self.min_range > danger_th + margin:
+                self.status = 'caution'
+            else:
+                self.status = 'danger'
+        elif self.status == 'caution':
+            if self.min_range > caution_th + margin:
+                self.status = 'safe'
+            elif self.min_range <= danger_th:
+                self.status = 'danger'
+            else:
+                self.status = 'caution'
+        else: # 'safe'
+            if self.min_range <= danger_th:
+                self.status = 'danger'
+            elif self.min_range <= caution_th:
+                self.status = 'caution'
+            else:
+                self.status = 'safe'
         
 
     def odom_callback(self, msg: Odometry):

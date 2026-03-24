@@ -1,6 +1,4 @@
 from setuptools import find_packages, setup
-import os
-from glob import glob
 
 package_name = 'patrol_sensors'
 
@@ -12,7 +10,6 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),   # launch 파일용
     ],
     install_requires=['setuptools', 'rclpy', 'sensor_msgs'],
     zip_safe=True,
@@ -27,7 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'scan_logger = patrol_sensors.scan_logger:main'
+            'scan_logger = patrol_sensors.scan_logger:main',
+            'patrol_safety_gate = patrol_sensors.patrol_safety_gate:main'
         ],
     },
 )
