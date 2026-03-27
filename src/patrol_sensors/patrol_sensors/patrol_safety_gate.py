@@ -38,8 +38,6 @@ class PatrolSafetyGate(Node):
             msg.angular.z = 0.0
         elif self.safety_status == 'caution':
             self.get_logger().warn(f'safety_status: {self.safety_status}')
-            msg.linear.x = 0.0
-            msg.angular.z = 0.0
         
         self.cmd_vel_publisher.publish(msg)
         
