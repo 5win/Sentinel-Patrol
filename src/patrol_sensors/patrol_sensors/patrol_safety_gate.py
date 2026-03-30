@@ -9,7 +9,7 @@ class PatrolSafetyGate(Node):
 
         self.cmd_vel_raw: Twist = None
         self.cmd_vel_manager: Twist = None
-        self.patrol_state: str = None
+        self.patrol_state: str = 'idle'
 
         # subscriber
         self.create_subscription(
@@ -55,6 +55,9 @@ class PatrolSafetyGate(Node):
 
     def timer_callback(self):
         self.get_logger().info(f'patrol/state: {self.patrol_state}', throttle_duration_sec=1.0)
+
+        if self.cmd_vel_raw is None:
+            return
 
         if self.patrol_state == 'patrolling':
             self.cmd_vel_publisher.publish(self.cmd_vel_raw)

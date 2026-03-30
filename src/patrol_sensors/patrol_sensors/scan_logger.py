@@ -113,6 +113,8 @@ class ScanLogger(Node):
         self.current_velocity = msg.twist.twist.linear.x
 
     def timer_callback(self):
+        if self.min_range is None:
+            return
 
         log_msg = (
             f'min_range={self.min_range:.3f} m |'
