@@ -8,7 +8,7 @@ from rclpy.task import Future
 from rclpy.time import Time
 from rclpy.duration import Duration
 
-from nav2_msgs.action import NavigateToPose
+from nav2_msgs.action import NavigateToPose, Spin
 from geometry_msgs.msg import Twist, PoseStamped
 from patrol_msgs.msg import FrontScan
 from std_msgs.msg import String
@@ -59,6 +59,10 @@ class PatrolManager(Node):
         self.emergency_start_time: Time = None
         self.turn_direction: float = 1.0
 
+        # spin action 관련
+        self._spin_goal_handle: Optional[ClientGoalHandle] = None
+        self._spin_goal_sent: bool = False
+
 
         # subscriber
         self.create_subscription(
@@ -83,6 +87,7 @@ class PatrolManager(Node):
 
         # action client
         self.nav_to_pose_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
+        self.spin_client = ActionClient(self, Spin, 'spin')
 
         # set timer
         self.timer = self.create_timer(0.1, self.timer_callback)
@@ -107,12 +112,11 @@ class PatrolManager(Node):
             self.cancel_goal()
             self.transition_to(PatrolState.EMERGENCY)
             self.emergency_start_time = self.get_clock().now()
-
-        elif msg.status == 'safe' and self.state == PatrolState.AVOIDING:
-            self.get_logger().info('Obstacle cleared -> PATROLLING')
-            self.transition_to(PatrolState.PATROLLING)
-            self.send_next_waypoint()   # 장애물이 없어졌으니, 계속 진행
-            
+        
+        elif self.status == 'safe' and self.state == PatrolState.AVOIDING:
+            # AVOIDING 상태에서는 safe 신호가 와도 Spin 완료까지 대기
+            # 상태 전이는 spin_goal_result_callback에서 처리
+            pass
             
     
     def start_patrol(self):
@@ -196,10 +200,60 @@ class PatrolManager(Node):
             self.transition_to(PatrolState.AVOIDING)
 
     def execute_avoiding_behavior(self):
-        msg = Twist()
-        msg.angular.z = 0.5 * self.turn_direction
+        """Spin action으로 90도 회전하여 장애물 회피"""
+        import math
+        goal = Spin.Goal()
+        goal.target_yaw = (math.pi / 2.0) * self.turn_direction  # ±90도
+        goal.time_allowance.sec = 15
 
-        self.cmd_vel_manager_publisher.publish(msg)
+        self.spin_client.wait_for_server()
+
+        send_goal_future = self.spin_client.send_goal_async(goal)
+        send_goal_future.add_done_callback(self.spin_goal_response_callback)
+        self._spin_goal_sent = True
+        self.get_logger().info(f'Spin goal sent: {math.degrees(goal.target_yaw):.1f} degrees')
+
+    # spin goal response callback
+    def spin_goal_response_callback(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().warn('Spin goal rejected')
+            self._spin_goal_sent = False
+            return
+
+        self.get_logger().info('Spin goal accepted')
+        self._spin_goal_handle = goal_handle
+
+        result_future = goal_handle.get_result_async()
+        result_future.add_done_callback(self.spin_goal_result_callback)
+
+    # spin goal result callback
+    def spin_goal_result_callback(self, future):
+        self._spin_goal_handle = None
+        self._spin_goal_sent = False
+
+        if self.state != PatrolState.AVOIDING:
+            self.get_logger().info(f'Spin finished but state is {self.state}, ignoring')
+            return
+
+        from action_msgs.msg import GoalStatus
+        result = future.result()
+
+        if result.status == GoalStatus.STATUS_SUCCEEDED:
+            self.get_logger().info('Spin completed -> PATROLLING')
+            self.transition_to(PatrolState.PATROLLING)
+            self.send_next_waypoint()
+        else:
+            self.get_logger().warn('Spin failed -> retrying')
+            self._spin_goal_sent = False  # 재시도 허용
+
+    # cancel spin
+    def cancel_spin(self):
+        if self._spin_goal_handle is not None:
+            self._spin_goal_handle.cancel_goal_async()
+            self._spin_goal_handle = None
+            self.get_logger().info('Spin goal cancelled')
+        self._spin_goal_sent = False
 
 
     def timer_callback(self):
@@ -213,7 +267,8 @@ class PatrolManager(Node):
             self.execute_emergency_behavior()
 
         elif self.state == PatrolState.AVOIDING:
-            self.execute_avoiding_behavior()
+            if not self._spin_goal_sent:
+                self.execute_avoiding_behavior()
         
 
 

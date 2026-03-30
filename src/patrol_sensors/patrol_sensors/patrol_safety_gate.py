@@ -59,10 +59,10 @@ class PatrolSafetyGate(Node):
         if self.cmd_vel_raw is None:
             return
 
-        if self.patrol_state == 'patrolling':
+        if self.patrol_state in ('patrolling', 'avoiding'):
             self.cmd_vel_publisher.publish(self.cmd_vel_raw)
 
-        elif self.patrol_state in ('emergency', 'avoiding'):
+        elif self.patrol_state == 'emergency':
             self.cmd_vel_publisher.publish(self.cmd_vel_manager)
 
 
