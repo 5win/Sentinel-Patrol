@@ -57,6 +57,8 @@ class PatrolManager(Node):
         self._goal_handle: Optional[ClientGoalHandle] = None
         self.send_goal_future: Optional[Future] = None
         self.emergency_start_time: Time = None
+        self.turn_direction: float = 1.0
+
 
         # subscriber
         self.create_subscription(
@@ -80,7 +82,7 @@ class PatrolManager(Node):
         )
 
         # action client
-        self.nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
+        self.nav_to_pose_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
 
         # set timer
         self.timer = self.create_timer(0.1, self.timer_callback)
@@ -96,6 +98,8 @@ class PatrolManager(Node):
 
     # front_scan callback
     def front_scan_callback(self, msg: FrontScan):
+        self.turn_direction = msg.turn_direction
+
         if msg.status == 'danger' and self.state not in (
             PatrolState.EMERGENCY, PatrolState.AVOIDING, PatrolState.RETURNING
         ):
@@ -127,10 +131,10 @@ class PatrolManager(Node):
         goal_msg.pose = make_pose(x, y, yaw)
         
         # action server가 준비될 때까지 대기
-        self.nav_client.wait_for_server() 
+        self.nav_to_pose_client.wait_for_server() 
 
         # send asyn goal (feedback X)
-        self.send_goal_future = self.nav_client.send_goal_async(goal_msg)
+        self.send_goal_future = self.nav_to_pose_client.send_goal_async(goal_msg)
         self.send_goal_future.add_done_callback(self.goal_response_callback)
         
 
@@ -193,7 +197,8 @@ class PatrolManager(Node):
 
     def execute_avoiding_behavior(self):
         msg = Twist()
-        msg.angular.z = 0.5
+        msg.angular.z = 0.5 * self.turn_direction
+
         self.cmd_vel_manager_publisher.publish(msg)
 
 

@@ -13,6 +13,8 @@ class ScanLogger(Node):
         self.status = 'safe'
         self.prev_status = 'safe'
         self.current_velocity = 0.0
+        self.turn_direction = 1.0
+
 
         # subscriber
         self.scan_subscription = self.create_subscription(
@@ -70,13 +72,6 @@ class ScanLogger(Node):
         # 위험 상태 분류(safe, caution, danger)
         base_caution_dist = 0.4     # 0.1m/s x 4s = 0.4m
         base_danger_dist = 0.2      # 0.1m/s x 2s = 0.2m
-        # if self.min_range > base_caution_dist + self.current_velocity * 4:
-        #     self.status = 'safe'
-        # elif self.min_range > base_danger_dist + self.current_velocity * 2:
-        #     self.status = 'caution'
-        # else:
-        #     self.status = 'danger'
-        
 
         target_vel = 0.1
         caution_th = base_caution_dist + target_vel * 4
@@ -106,6 +101,36 @@ class ScanLogger(Node):
                 self.status = 'caution'
             else:
                 self.status = 'safe'
+
+        # 좌우 공간 비교하여 회피 방향 결정 (10도 ~ 50도 기준)
+        def get_sector_avg(center_deg, window_deg):
+            c_rad = math.radians(center_deg)
+            # Normalize to [msg.angle_min, msg.angle_max]
+            while c_rad < msg.angle_min: c_rad += 2 * math.pi
+            while c_rad > msg.angle_max: c_rad -= 2 * math.pi
+                
+            idx = int((c_rad - msg.angle_min) / msg.angle_increment)
+            half_w = int(math.radians(window_deg) / msg.angle_increment / 2)
+            
+            s_idx = idx - half_w
+            e_idx = idx + half_w
+            
+            if s_idx < 0:
+                ranges = msg.ranges[s_idx:] + msg.ranges[:e_idx]
+            elif e_idx > len(msg.ranges):
+                ranges = msg.ranges[s_idx:] + msg.ranges[:e_idx - len(msg.ranges)]
+            else:
+                ranges = msg.ranges[s_idx:e_idx]
+                
+            valid = [r for r in ranges if msg.range_min < r < msg.range_max and not math.isinf(r) and not math.isnan(r)]
+            return sum(valid) / len(valid) if valid else 0.0
+
+        left_avg = get_sector_avg(30.0, 40.0)    # +10 ~ +50
+        right_avg = get_sector_avg(-30.0, 40.0)  # -10 ~ -50
+        
+        # 거리가 더 먼(빈 공간이 많은) 방향으로 설정
+        self.turn_direction = 1.0 if left_avg >= right_avg else -1.0
+
         
 
     def odom_callback(self, msg: Odometry):
@@ -119,7 +144,8 @@ class ScanLogger(Node):
         log_msg = (
             f'min_range={self.min_range:.3f} m |'
             f'status={self.status} | '
-            f'vel={self.current_velocity:.3f} m/s'
+            f'vel={self.current_velocity:.3f} m/s | '
+            f'dir={self.turn_direction}'
         )
 
         # custom message 생성
@@ -127,6 +153,7 @@ class ScanLogger(Node):
         front_scan_msg.status = self.status
         front_scan_msg.min_range = self.min_range
         front_scan_msg.current_velocity = self.current_velocity
+        front_scan_msg.turn_direction = self.turn_direction
         
 
         if self.status != self.prev_status:
