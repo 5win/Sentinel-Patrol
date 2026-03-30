@@ -1,6 +1,12 @@
+from typing import Optional
+
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
+from rclpy.action.client import ClientGoalHandle
+from rclpy.task import Future
+from rclpy.time import Time
+from rclpy.duration import Duration
 
 from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import Twist, PoseStamped
@@ -45,8 +51,11 @@ class PatrolManager(Node):
     def __init__(self):
         super().__init__('patrol_manager')
 
-        self.state = PatrolState.IDLE
-        self.current_wp_index = 0   # 현재 웨이포인트 인덱스
+        self.state: PatrolState = PatrolState.IDLE
+        self.current_wp_index: int = 0   # 현재 웨이포인트 인덱스
+        self._goal_handle: Optional[ClientGoalHandle] = None
+        self.send_goal_future: Optional[Future] = None
+        self.emergency_start_time: Time = None
 
         # subscriber
         self.create_subscription(
@@ -86,6 +95,14 @@ class PatrolManager(Node):
             self.get_logger().warn(f'Obstacle detected min_range={msg.min_range:.2f} -> EMERGENCY')
             self.cancel_goal()
             self.transition_to(PatrolState.EMERGENCY)
+            self.emergency_start_time = self.get_clock().now()
+
+        elif msg.status == 'safe' and self.state == PatrolState.EMERGENCY:
+            self.get_logger().info('Obstacle cleared -> PATROLLING')
+            self.transition_to(PatrolState.PATROLLING)
+            self.send_next_waypoint()   # 장애물이 없어졌으니, 계속 진행
+            
+            
     
     def start_patrol(self):
         self.current_wp_index = 0
@@ -144,7 +161,7 @@ class PatrolManager(Node):
             self.send_next_waypoint()
         else: 
             self.get_logger().info(f'Failed to arrive at waypoint [{self.current_wp_index}]')
-            self.send_next_waypoint()   # 실패 재시
+            self.send_next_waypoint()   # 실패 재시도
 
 
     # cancel goal
@@ -154,9 +171,22 @@ class PatrolManager(Node):
             self._goal_handle = None    # 중복 취소 호출을 방지
             self.get_logger().info('Goal cancelled')
 
+    def execute_avoiding_behavior(self):
+        pass    # Todo
+
 
     def timer_callback(self):
         self.get_logger().info(f'Current state: {self.state} | WP: {self.current_wp_index}/{len(WAYPOINTS)}')
+
+        if self.state == PatrolState.EMERGENCY:
+            elapsed_time: Duration = self.get_clock().now() - self.emergency_start_time
+            if (elapsed_time.nanoseconds / 1e9) > 5.0:
+                self.get_logger().info('5 seconds passed -> AVOIDING')
+                self.transition_to(PatrolState.AVOIDING)
+            pass
+        elif self.state == PatrolState.AVOIDING:
+            self.execute_avoiding_behavior()
+        
 
 
 def main():
