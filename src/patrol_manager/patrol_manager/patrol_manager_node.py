@@ -54,14 +54,18 @@ class PatrolManager(Node):
 
         self.state: PatrolState = PatrolState.IDLE
         self.current_wp_index: int = 0   # 현재 웨이포인트 인덱스
+
+        # navigate_to_pose action 관련
         self._goal_handle: Optional[ClientGoalHandle] = None
         self.send_goal_future: Optional[Future] = None
         self.emergency_start_time: Time = None
-        self.turn_direction: float = 1.0
 
         # spin action 관련
+        self.turn_direction: float = 1.0
         self._spin_goal_handle: Optional[ClientGoalHandle] = None
         self._spin_goal_sent: bool = False
+        self._spin_completed: bool = False
+        self.safe_start_time: Time = None
 
 
         # subscriber
@@ -113,10 +117,14 @@ class PatrolManager(Node):
             self.transition_to(PatrolState.EMERGENCY)
             self.emergency_start_time = self.get_clock().now()
         
-        elif msg.status == 'safe' and self.state == PatrolState.AVOIDING:
-            # AVOIDING 상태에서는 safe 신호가 와도 Spin 완료까지 대기
-            # 상태 전이는 spin_goal_result_callback에서 처리
-            pass
+        elif msg.status in ('safe', 'caution') and self.state == PatrolState.AVOIDING:
+            # Spin 완료 후 safe 타이머 시작
+            if self._spin_completed and self.safe_start_time is None:
+                self.safe_start_time = self.get_clock().now()
+
+        elif msg.status == 'danger' and self.state == PatrolState.AVOIDING:
+            # AVOIDING 중 다시 danger가 오면 safe 타이머 리셋
+            self.safe_start_time = None
             
     
     def start_patrol(self):
@@ -240,9 +248,9 @@ class PatrolManager(Node):
         result = future.result()
 
         if result.status == GoalStatus.STATUS_SUCCEEDED:
-            self.get_logger().info('Spin completed -> PATROLLING')
-            self.transition_to(PatrolState.PATROLLING)
-            self.send_next_waypoint()
+            self.get_logger().info('Spin completed -> waiting for safe (3s)')
+            self._spin_completed = True
+            self.safe_start_time = None  # front_scan에서 safe 올 때 시작
         else:
             self.get_logger().warn('Spin failed -> retrying')
             self._spin_goal_sent = False  # 재시도 허용
@@ -267,8 +275,16 @@ class PatrolManager(Node):
             self.execute_emergency_behavior()
 
         elif self.state == PatrolState.AVOIDING:
-            if not self._spin_goal_sent:
+            if not self._spin_goal_sent and not self._spin_completed:
                 self.execute_avoiding_behavior()
+            elif self._spin_completed and self.safe_start_time is not None:
+                elapsed: Duration = self.get_clock().now() - self.safe_start_time
+                if (elapsed.nanoseconds / 1e9) > 3.0:
+                    self.get_logger().info('Safe for 3 seconds -> PATROLLING')
+                    self._spin_completed = False
+                    self.safe_start_time = None
+                    self.transition_to(PatrolState.PATROLLING)
+                    self.send_next_waypoint()
         
 
 
