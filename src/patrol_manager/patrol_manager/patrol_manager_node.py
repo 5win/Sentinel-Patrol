@@ -113,7 +113,7 @@ class PatrolManager(Node):
             self.transition_to(PatrolState.EMERGENCY)
             self.emergency_start_time = self.get_clock().now()
         
-        elif self.status == 'safe' and self.state == PatrolState.AVOIDING:
+        elif msg.status == 'safe' and self.state == PatrolState.AVOIDING:
             # AVOIDING 상태에서는 safe 신호가 와도 Spin 완료까지 대기
             # 상태 전이는 spin_goal_result_callback에서 처리
             pass
