@@ -1,13 +1,15 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from patrol_msgs.msg import FrontScan
+from std_msgs.msg import String
 
 class PatrolSafetyGate(Node):
     def __init__(self):
         super().__init__('patrol_safety_gate')
 
-        self.safety_status = 'unknown'
+        self.cmd_vel_raw: Twist = None
+        self.cmd_vel_manager: Twist = None
+        self.patrol_state: str = None
 
         # subscriber
         self.create_subscription(
@@ -16,10 +18,18 @@ class PatrolSafetyGate(Node):
             self.cmd_vel_raw_callback,
             10
         )
+
         self.create_subscription(
-            FrontScan,
-            '/front_scan',
-            self.front_scan_callback,
+            Twist,
+            '/cmd_vel_manager',
+            self.cmd_vel_manager_callback,
+            10
+        )
+
+        self.create_subscription(
+            String,
+            '/patrol/state',
+            self.patrol_state_callback,
             10
         )
 
@@ -30,20 +40,27 @@ class PatrolSafetyGate(Node):
             10
         )
 
-    def cmd_vel_raw_callback(self, msg: Twist):
-        # danger 상태이면 정지
-        if self.safety_status == 'danger':
-            self.get_logger().fatal(f'safety_status: {self.safety_status}')
-            msg.linear.x = 0.0
-            msg.angular.z = 0.0
-        elif self.safety_status == 'caution':
-            self.get_logger().warn(f'safety_status: {self.safety_status}')
-        
-        self.cmd_vel_publisher.publish(msg)
-        
+        # timer
+        self.timer = self.create_timer(0.1, self.timer_callback)
 
-    def front_scan_callback(self, msg: FrontScan):
-        self.safety_status = msg.status
+
+    def cmd_vel_raw_callback(self, msg: Twist):
+        self.cmd_vel_raw = msg
+    
+    def cmd_vel_manager_callback(self, msg: Twist):
+        self.cmd_vel_manager = msg
+    
+    def patrol_state_callback(self, msg: String):
+        self.patrol_state = msg.data.lower()    # 소문자로 변환
+
+    def timer_callback(self):
+        self.get_logger().info(f'patrol/state: {self.patrol_state}', throttle_duration_sec=1.0)
+
+        if self.patrol_state == 'patrolling':
+            self.cmd_vel_publisher.publish(self.cmd_vel_raw)
+
+        elif self.patrol_state in ('emergency', 'avoiding'):
+            self.cmd_vel_publisher.publish(self.cmd_vel_manager)
 
 
 def main():

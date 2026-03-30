@@ -11,6 +11,7 @@ from rclpy.duration import Duration
 from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import Twist, PoseStamped
 from patrol_msgs.msg import FrontScan
+from std_msgs.msg import String
 
 from enum import Enum, auto
 
@@ -66,9 +67,15 @@ class PatrolManager(Node):
         )
 
         # publisher
-        self.cmd_vel_publisher = self.create_publisher(
+        self.cmd_vel_manager_publisher = self.create_publisher(
             Twist,
-            '/cmd_vel',
+            '/cmd_vel_manager',
+            10
+        )
+
+        self.patrol_state_publisher = self.create_publisher(
+            String,
+            '/patrol/state',
             10
         )
 
@@ -76,7 +83,7 @@ class PatrolManager(Node):
         self.nav_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
 
         # set timer
-        self.timer = self.create_timer(1.0, self.timer_callback)
+        self.timer = self.create_timer(0.1, self.timer_callback)
 
         self.get_logger().info(f'Patrol manager started in {self.state} state')
 
@@ -97,7 +104,7 @@ class PatrolManager(Node):
             self.transition_to(PatrolState.EMERGENCY)
             self.emergency_start_time = self.get_clock().now()
 
-        elif msg.status == 'safe' and self.state == PatrolState.EMERGENCY:
+        elif msg.status == 'safe' and self.state == PatrolState.AVOIDING:
             self.get_logger().info('Obstacle cleared -> PATROLLING')
             self.transition_to(PatrolState.PATROLLING)
             self.send_next_waypoint()   # 장애물이 없어졌으니, 계속 진행
@@ -171,19 +178,35 @@ class PatrolManager(Node):
             self._goal_handle = None    # 중복 취소 호출을 방지
             self.get_logger().info('Goal cancelled')
 
+    def execute_emergency_behavior(self):
+        # emergency이면 일단 정지
+        msg = Twist()
+        msg.linear.x = 0.0
+        msg.angular.z = 0.0
+        self.cmd_vel_manager_publisher.publish(msg)
+
+        # 5초 동안 장애물이 사라지지 않으면 회피로 상태 전이
+        elapsed_time: Duration = self.get_clock().now() - self.emergency_start_time
+        if (elapsed_time.nanoseconds / 1e9) > 5.0:
+            self.get_logger().info('5 seconds passed -> AVOIDING', throttle_duration_sec=1.5)
+            self.transition_to(PatrolState.AVOIDING)
+
     def execute_avoiding_behavior(self):
-        pass    # Todo
+        msg = Twist()
+        msg.angular.z = 0.5
+        self.cmd_vel_manager_publisher.publish(msg)
 
 
     def timer_callback(self):
-        self.get_logger().info(f'Current state: {self.state} | WP: {self.current_wp_index}/{len(WAYPOINTS)}')
+        self.get_logger().info(f'Current state: {self.state} | WP: {self.current_wp_index}/{len(WAYPOINTS)}', throttle_duration_sec=1.5)
 
+        # 상태 publish
+        self.patrol_state_publisher.publish(String(data=self.state.name))
+
+        # state별 behavior
         if self.state == PatrolState.EMERGENCY:
-            elapsed_time: Duration = self.get_clock().now() - self.emergency_start_time
-            if (elapsed_time.nanoseconds / 1e9) > 5.0:
-                self.get_logger().info('5 seconds passed -> AVOIDING')
-                self.transition_to(PatrolState.AVOIDING)
-            pass
+            self.execute_emergency_behavior()
+
         elif self.state == PatrolState.AVOIDING:
             self.execute_avoiding_behavior()
         

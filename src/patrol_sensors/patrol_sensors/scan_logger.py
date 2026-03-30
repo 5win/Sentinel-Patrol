@@ -36,7 +36,7 @@ class ScanLogger(Node):
             3,
         )
 
-        self.timer = self.create_timer(0.5, self.timer_callback)
+        self.timer = self.create_timer(0.1, self.timer_callback)
 
 
     def scan_callback(self, msg: LaserScan):
@@ -129,11 +129,11 @@ class ScanLogger(Node):
 
         if self.status != self.prev_status:
             self.front_scan_publisher.publish(front_scan_msg)
-            self.get_logger().warn(f'[STATE CHANGE] {log_msg}') 
+            self.get_logger().warn(f'[STATE CHANGE] {log_msg}', throttle_duration_sec=1.5) 
             self.prev_status = self.status
         else:
             self.front_scan_publisher.publish(front_scan_msg)
-            self.get_logger().info(log_msg)
+            self.get_logger().info(log_msg, throttle_duration_sec=1.5)
 
 
 def main():
