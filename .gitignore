@@ -68,9 +68,16 @@ Thumbs.db
 gazebo_models/
 
 # =========================
+# Models
+# =========================
+yolo*.pt
+
+
+# =========================
 # Custom (optional)
 # =========================
 # dataset / outputs
 data/
 outputs/
 results/
+edge_cases/
