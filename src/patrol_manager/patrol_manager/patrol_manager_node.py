@@ -1,3 +1,4 @@
+import math
 from typing import Optional
 
 import rclpy
@@ -8,6 +9,8 @@ from rclpy.task import Future
 from rclpy.time import Time
 from rclpy.duration import Duration
 
+
+from action_msgs.msg import GoalStatus
 from nav2_msgs.action import NavigateToPose, Spin
 from geometry_msgs.msg import Twist, PoseStamped
 from patrol_msgs.msg import FrontScan
@@ -52,6 +55,11 @@ class PatrolManager(Node):
     def __init__(self):
         super().__init__('patrol_manager')
 
+        self.EMERGENCY_TIMEOUT_SEC = 5.0
+        self.SAFE_CONFIRM_SEC = 3.0
+        self.TIMER_PERIOD_SEC = 0.1
+
+
         self.state: PatrolState = PatrolState.IDLE
         self.current_wp_index: int = 0   # 현재 웨이포인트 인덱스
 
@@ -94,11 +102,15 @@ class PatrolManager(Node):
         self.spin_client = ActionClient(self, Spin, 'spin')
 
         # set timer
-        self.timer = self.create_timer(0.1, self.timer_callback)
+        self.timer = self.create_timer(self.TIMER_PERIOD_SEC, self.timer_callback)
 
         self.get_logger().info(f'Patrol manager started in {self.state} state')
 
         self.start_patrol()
+
+    # 경과 시간 계산
+    def _seconds_since(self, start_time: Time) -> float:
+        return (self.get_clock().now() - start_time).nanoseconds / 1e9
 
     # 상태 전이
     def transition_to(self, new_state: PatrolState):
@@ -139,11 +151,10 @@ class PatrolManager(Node):
         # 다음 waypoint goal 메시지 생성
         x, y, yaw = WAYPOINTS[self.current_wp_index]
         goal_msg = NavigateToPose.Goal()
-        goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
         goal_msg.pose = make_pose(x, y, yaw)
         
         # action server가 준비될 때까지 대기
-        self.nav_to_pose_client.wait_for_server() 
+        self.nav_to_pose_client.wait_for_server(timeout_sec=5.0) 
 
         # send asyn goal (feedback X)
         self.send_goal_future = self.nav_to_pose_client.send_goal_async(goal_msg)
@@ -175,8 +186,6 @@ class PatrolManager(Node):
         if self.state not in (PatrolState.PATROLLING, PatrolState.WAIT):
             self.get_logger().info(f'Goal cancelled or preempted[state: {self.state}]')
             return
-
-        from action_msgs.msg import GoalStatus
         
         if result.status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info(f'Arrived at waypoint [{self.current_wp_index}]')
@@ -202,19 +211,17 @@ class PatrolManager(Node):
         self.cmd_vel_manager_publisher.publish(msg)
 
         # 5초 동안 장애물이 사라지지 않으면 회피로 상태 전이
-        elapsed_time: Duration = self.get_clock().now() - self.emergency_start_time
-        if (elapsed_time.nanoseconds / 1e9) > 5.0:
-            self.get_logger().info('5 seconds passed -> AVOIDING', throttle_duration_sec=1.5)
+        if self._seconds_since(self.emergency_start_time) > self.EMERGENCY_TIMEOUT_SEC:
+            self.get_logger().info(f'{self.EMERGENCY_TIMEOUT_SEC} seconds passed -> AVOIDING', throttle_duration_sec=1.5)
             self.transition_to(PatrolState.AVOIDING)
 
     def execute_avoiding_behavior(self):
-        """Spin action으로 90도 회전하여 장애물 회피"""
-        import math
+        # Spin action으로 90도 회전하여 장애물 회피
         goal = Spin.Goal()
         goal.target_yaw = (math.pi / 2.0) * self.turn_direction  # ±90도
         goal.time_allowance.sec = 15
 
-        self.spin_client.wait_for_server()
+        self.spin_client.wait_for_server(timeout_sec=5.0)
 
         send_goal_future = self.spin_client.send_goal_async(goal)
         send_goal_future.add_done_callback(self.spin_goal_response_callback)
@@ -278,13 +285,13 @@ class PatrolManager(Node):
             if not self._spin_goal_sent and not self._spin_completed:
                 self.execute_avoiding_behavior()
             elif self._spin_completed and self.safe_start_time is not None:
-                elapsed: Duration = self.get_clock().now() - self.safe_start_time
-                if (elapsed.nanoseconds / 1e9) > 3.0:
-                    self.get_logger().info('Safe for 3 seconds -> PATROLLING')
+                if self._seconds_since(self.safe_start_time) > self.SAFE_CONFIRM_SEC:
+                    self.get_logger().info(f'Safe for {self.SAFE_CONFIRM_SEC} seconds -> PATROLLING')
                     self._spin_completed = False
                     self.safe_start_time = None
                     self.transition_to(PatrolState.PATROLLING)
                     self.send_next_waypoint()
+
         
 
 
