@@ -12,8 +12,8 @@ find_package(std_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/FrontScan.msg"
-  "msg/DetectedPerson.msg"
-  "msg/DetectedPersons.msg"
+  "msg/Detection.msg"
+  "msg/Detections.msg"
   DEPENDENCIES std_msgs
 )
 
