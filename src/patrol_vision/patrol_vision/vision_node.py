@@ -99,7 +99,7 @@ class VisionNode(Node):
         plot_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-        file_name = f'person_cls{cls_id}_conf{conf:.2f}_{timestamp}.jpg'
+        file_name = f'{timestamp}_cls{cls_id}_conf{conf:.2f}.jpg'
         raw_path = raw_dir / file_name
         plot_path = plot_dir / file_name
 
