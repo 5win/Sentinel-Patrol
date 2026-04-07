@@ -219,15 +219,15 @@ AVOIDING
 
 #### 문제 재현
 
-<video src="./images/avoidance/patrol_manager_무한 avoiding 문제.mov" controls width="100%"></video>
+<img src="./images/avoidance/patrol_manager_무한 avoiding 문제.gif" alt="avoidance infinite loop problem" width="100%">
 
 #### 개선 후
 
-<video src="./images/avoidance/patrol_manager_무한 avoiding 해결.mov" controls width="100%"></video>
+<img src="./images/avoidance/patrol_manager_무한 avoiding 해결.gif" alt="avoidance improved result" width="100%">
 
 #### Nav2 Spin Action 적용
 
-<video src="./images/avoidance/patrol_manager_nav2 spin 적용.mov" controls width="100%"></video>
+<img src="./images/avoidance/patrol_manager_nav2 spin 적용.gif" alt="nav2 spin action applied" width="100%">
 
 ---
 
