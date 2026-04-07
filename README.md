@@ -33,24 +33,6 @@
   <img src="./images/architecture/system_flow_overview.png" alt="sentinel patrol system flow overview" width="100%">
 </p>
 
-```mermaid
-flowchart LR
-    A[LiDAR /scan] --> B[Scan Logger]
-    B --> C[/front_scan]
-    C --> D[Patrol Manager]
-    D --> E[/patrol/state]
-    D --> F[/cmd_vel_manager]
-
-    G[Nav2] --> H[/cmd_vel_raw]
-    H --> I[Patrol Safety Gate]
-    F --> I
-    E --> I
-    I --> J[/cmd_vel]
-
-    K[Camera /camera/image_raw] --> L[Vision Node]
-    L --> M[/detections]
-```
-
 ## 이 프로젝트에서 다룬 내용
 
 - 센서 값을 바로 쓰지 않고, 제어 가능한 상태 정보로 변환했습니다.
