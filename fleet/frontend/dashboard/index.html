@@ -40,7 +40,6 @@
   </div>
 
   <script src="map_config.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
   <script>
     const cfg = window.MAP_CONFIG;
     if (!cfg) {
@@ -69,12 +68,6 @@
       const px = (wx - cfg.origin.x) / cfg.resolution;
       const py = cfg.height - (wy - cfg.origin.y) / cfg.resolution;
       return [px, py];
-    }
-
-    function quatToYaw(q) {
-      const siny = 2 * (q.w * q.z + q.x * q.y);
-      const cosy = 1 - 2 * (q.y * q.y + q.z * q.z);
-      return Math.atan2(siny, cosy);
     }
 
     function drawRobot() {
@@ -108,26 +101,29 @@
       drawRobot();
     }
 
-    const ros = new ROSLIB.Ros({ url: 'ws://localhost:9090' });
-    ros.on('connection', () => { statusEl.textContent = 'connected'; statusEl.className = 'ok'; });
-    ros.on('error',      () => { statusEl.textContent = 'error';     statusEl.className = 'err'; });
-    ros.on('close',      () => { statusEl.textContent = 'disconnected'; statusEl.className = 'err'; });
-
-    const poseTopic = new ROSLIB.Topic({
-      ros: ros,
-      name: '/amcl_pose',
-      messageType: 'geometry_msgs/PoseWithCovarianceStamped',
-    });
-
-    poseTopic.subscribe((msg) => {
-      const p = msg.pose.pose.position;
-      const q = msg.pose.pose.orientation;
-      const yaw = quatToYaw(q);
-      robot = { x: p.x, y: p.y, yaw };
-      poseEl.textContent =
-        `pose: x=${p.x.toFixed(2)}  y=${p.y.toFixed(2)}  yaw=${(yaw * 180 / Math.PI).toFixed(1)}°`;
-      render();
-    });
+    // Connect to fleet backend WebSocket (served by the same FastAPI process)
+    let ws;
+    function connect() {
+      ws = new WebSocket(`ws://${location.host}/ws`);
+      ws.onopen  = () => { statusEl.textContent = 'connected';    statusEl.className = 'ok';  };
+      ws.onclose = () => {
+        statusEl.textContent = 'disconnected';
+        statusEl.className = 'err';
+        setTimeout(connect, 1000);
+      };
+      ws.onerror = () => { /* onclose will follow */ };
+      ws.onmessage = (ev) => {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'pose') {
+          const { x, y, yaw } = msg.data;
+          robot = { x, y, yaw };
+          poseEl.textContent =
+            `pose: x=${x.toFixed(2)}  y=${y.toFixed(2)}  yaw=${(yaw * 180 / Math.PI).toFixed(1)}°`;
+          render();
+        }
+      };
+    }
+    connect();
   </script>
 </body>
 </html>
