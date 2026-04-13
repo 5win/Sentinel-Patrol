@@ -8,6 +8,7 @@ import rclpy
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from geometry_msgs.msg import PoseWithCovarianceStamped
+from nav_msgs.msg import Path
 from rclpy.node import Node
 
 DASHBOARD_DIR = os.path.abspath(
@@ -27,12 +28,15 @@ class ConnectionManager:
     def __init__(self) -> None:
         self.active: set[WebSocket] = set()
         self.last_pose: dict | None = None
+        self.last_plan: list | None = None
 
     async def connect(self, ws: WebSocket) -> None:
         await ws.accept()
         self.active.add(ws)
         if self.last_pose is not None:
             await ws.send_json({"type": "pose", "data": self.last_pose})
+        if self.last_plan is not None:
+            await ws.send_json({"type": "plan", "data": self.last_plan})
 
     def disconnect(self, ws: WebSocket) -> None:
         self.active.discard(ws)
@@ -61,7 +65,13 @@ class FleetBackendNode(Node):
             self._on_pose,
             10,
         )
-        self.get_logger().info("fleet_backend subscribed to /amcl_pose")
+        self.create_subscription(
+            Path,
+            "/plan",
+            self._on_plan,
+            10,
+        )
+        self.get_logger().info("fleet_backend subscribed to /amcl_pose, /plan")
 
     def _on_pose(self, msg: PoseWithCovarianceStamped) -> None:
         p = msg.pose.pose.position
@@ -75,6 +85,18 @@ class FleetBackendNode(Node):
         if main_loop is not None:
             asyncio.run_coroutine_threadsafe(
                 manager.broadcast({"type": "pose", "data": pose}),
+                main_loop,
+            )
+
+    def _on_plan(self, msg: Path) -> None:
+        points = [
+            {"x": ps.pose.position.x, "y": ps.pose.position.y}
+            for ps in msg.poses
+        ]
+        manager.last_plan = points
+        if main_loop is not None:
+            asyncio.run_coroutine_threadsafe(
+                manager.broadcast({"type": "plan", "data": points}),
                 main_loop,
             )
 

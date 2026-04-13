@@ -62,12 +62,27 @@
     mapImg.src = cfg.image;
 
     let robot = null;
+    let plan = null;
 
     // World (meters) → canvas pixel. ROS y goes up, canvas y goes down → flip.
     function worldToPixel(wx, wy) {
       const px = (wx - cfg.origin.x) / cfg.resolution;
       const py = cfg.height - (wy - cfg.origin.y) / cfg.resolution;
       return [px, py];
+    }
+
+    function drawPlan() {
+      if (!plan || plan.length < 2) return;
+      ctx.strokeStyle = 'rgba(100, 180, 255, 0.85)';
+      ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (let i = 0; i < plan.length; i++) {
+        const [px, py] = worldToPixel(plan[i].x, plan[i].y);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
     }
 
     function drawRobot() {
@@ -98,6 +113,7 @@
       if (!mapReady) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(mapImg, 0, 0);
+      drawPlan();
       drawRobot();
     }
 
@@ -119,6 +135,9 @@
           robot = { x, y, yaw };
           poseEl.textContent =
             `pose: x=${x.toFixed(2)}  y=${y.toFixed(2)}  yaw=${(yaw * 180 / Math.PI).toFixed(1)}°`;
+          render();
+        } else if (msg.type === 'plan') {
+          plan = msg.data;
           render();
         }
       };
