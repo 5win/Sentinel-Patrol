@@ -17,6 +17,21 @@
   #status { font-size: 14px; padding: 2px 8px; border-radius: 4px; }
   #status.ok { color: #6f6; background: #1a3a1a; }
   #status.err { color: #f66; background: #3a1a1a; }
+  #state {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    color: #ccc;
+    background: #333;
+  }
+  #state.idle       { color: #bbb; background: #333; }
+  #state.patrolling { color: #6f6; background: #1a3a1a; }
+  #state.wait       { color: #eec; background: #3a3a1a; }
+  #state.emergency  { color: #f66; background: #3a1a1a; }
+  #state.avoiding   { color: #fa6; background: #3a2a1a; }
+  #state.returning  { color: #6cf; background: #1a2a3a; }
   #pose { font-family: monospace; font-size: 13px; color: #aaa; }
   #canvas-wrap { padding: 16px; }
   canvas {
@@ -33,6 +48,7 @@
   <div id="header">
     <h3>Sentinel Patrol</h3>
     <span id="status" class="err">disconnected</span>
+    <span id="state">—</span>
     <span id="pose">pose: —</span>
   </div>
   <div id="canvas-wrap">
@@ -54,6 +70,7 @@
     canvas.height = cfg.height;
 
     const statusEl = document.getElementById('status');
+    const stateEl = document.getElementById('state');
     const poseEl = document.getElementById('pose');
 
     const mapImg = new Image();
@@ -139,6 +156,9 @@
         } else if (msg.type === 'plan') {
           plan = msg.data;
           render();
+        } else if (msg.type === 'state') {
+          stateEl.textContent = msg.data;
+          stateEl.className = msg.data.toLowerCase();
         }
       };
     }
