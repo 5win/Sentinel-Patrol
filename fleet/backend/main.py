@@ -7,10 +7,11 @@ from contextlib import asynccontextmanager
 import rclpy
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseArray, PoseWithCovarianceStamped
 from nav_msgs.msg import Path
 from rclpy.node import Node
-from std_msgs.msg import String
+from rclpy.qos import DurabilityPolicy, QoSProfile
+from std_msgs.msg import Int32, String
 
 DASHBOARD_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "frontend", "dashboard")
@@ -31,6 +32,8 @@ class ConnectionManager:
         self.last_pose: dict | None = None
         self.last_plan: list | None = None
         self.last_state: str | None = None
+        self.last_waypoints: list | None = None
+        self.last_current_wp: int | None = None
 
     async def connect(self, ws: WebSocket) -> None:
         await ws.accept()
@@ -41,6 +44,10 @@ class ConnectionManager:
             await ws.send_json({"type": "plan", "data": self.last_plan})
         if self.last_state is not None:
             await ws.send_json({"type": "state", "data": self.last_state})
+        if self.last_waypoints is not None:
+            await ws.send_json({"type": "waypoints", "data": self.last_waypoints})
+        if self.last_current_wp is not None:
+            await ws.send_json({"type": "current_wp", "data": self.last_current_wp})
 
     def disconnect(self, ws: WebSocket) -> None:
         self.active.discard(ws)
@@ -81,8 +88,26 @@ class FleetBackendNode(Node):
             self._on_state,
             10,
         )
+        # Match the patrol_manager's latched publisher
+        latching_qos = QoSProfile(
+            depth=1,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self.create_subscription(
+            PoseArray,
+            "/patrol/waypoints",
+            self._on_waypoints,
+            latching_qos,
+        )
+        self.create_subscription(
+            Int32,
+            "/patrol/current_waypoint",
+            self._on_current_wp,
+            10,
+        )
         self.get_logger().info(
-            "fleet_backend subscribed to /amcl_pose, /plan, /patrol/state"
+            "fleet_backend subscribed to /amcl_pose, /plan, /patrol/state, "
+            "/patrol/waypoints, /patrol/current_waypoint"
         )
 
     def _on_pose(self, msg: PoseWithCovarianceStamped) -> None:
@@ -118,6 +143,36 @@ class FleetBackendNode(Node):
         if main_loop is not None:
             asyncio.run_coroutine_threadsafe(
                 manager.broadcast({"type": "state", "data": state}),
+                main_loop,
+            )
+
+    def _on_waypoints(self, msg: PoseArray) -> None:
+        waypoints = [
+            {
+                "x": p.position.x,
+                "y": p.position.y,
+                "yaw": quat_to_yaw(
+                    p.orientation.x,
+                    p.orientation.y,
+                    p.orientation.z,
+                    p.orientation.w,
+                ),
+            }
+            for p in msg.poses
+        ]
+        manager.last_waypoints = waypoints
+        if main_loop is not None:
+            asyncio.run_coroutine_threadsafe(
+                manager.broadcast({"type": "waypoints", "data": waypoints}),
+                main_loop,
+            )
+
+    def _on_current_wp(self, msg: Int32) -> None:
+        idx = msg.data
+        manager.last_current_wp = idx
+        if main_loop is not None:
+            asyncio.run_coroutine_threadsafe(
+                manager.broadcast({"type": "current_wp", "data": idx}),
                 main_loop,
             )
 

@@ -8,12 +8,13 @@ from rclpy.action.client import ClientGoalHandle
 from rclpy.task import Future
 from rclpy.time import Time
 from rclpy.duration import Duration
+from rclpy.qos import QoSProfile, DurabilityPolicy
 
 from action_msgs.msg import GoalStatus
 from nav2_msgs.action import NavigateToPose, Spin
-from geometry_msgs.msg import Twist, PoseStamped
+from geometry_msgs.msg import Twist, PoseStamped, PoseArray
 from patrol_msgs.msg import FrontScan
-from std_msgs.msg import String
+from std_msgs.msg import String, Int32
 
 from enum import Enum, auto
 
@@ -94,6 +95,23 @@ class PatrolManager(Node):
             10
         )
 
+        # 웨이포인트 목록은 한 번 publish 후 새 구독자가 붙을 때 자동 재전송되도록
+        # TRANSIENT_LOCAL QoS 사용 (latched)
+        latching_qos = QoSProfile(
+            depth=1,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self.waypoints_publisher = self.create_publisher(
+            PoseArray,
+            '/patrol/waypoints',
+            latching_qos,
+        )
+        self.current_wp_publisher = self.create_publisher(
+            Int32,
+            '/patrol/current_waypoint',
+            10,
+        )
+
         # action client
         self.nav_to_pose_client = ActionClient(self, NavigateToPose, 'navigate_to_pose')
         self.spin_client = ActionClient(self, Spin, 'spin')
@@ -103,7 +121,22 @@ class PatrolManager(Node):
 
         self.get_logger().info(f'Patrol manager started in {self.state} state')
 
+        # 웨이포인트 목록 1회 publish (latched QoS이므로 이후 구독자는 자동 수신)
+        self.publish_waypoints()
+
         self.start_patrol()
+
+    def publish_waypoints(self):
+        msg = PoseArray()
+        msg.header.frame_id = 'map'
+        msg.header.stamp = self.get_clock().now().to_msg()
+        for x, y, yaw in WAYPOINTS:
+            msg.poses.append(make_pose(x, y, yaw).pose)
+        self.waypoints_publisher.publish(msg)
+        self.get_logger().info(f'Published {len(WAYPOINTS)} waypoints')
+
+    def publish_current_wp(self):
+        self.current_wp_publisher.publish(Int32(data=self.current_wp_index))
 
     # 경과 시간 계산
     def _seconds_since(self, start_time: Time) -> float:
@@ -138,6 +171,7 @@ class PatrolManager(Node):
     
     def start_patrol(self):
         self.current_wp_index = 0
+        self.publish_current_wp()
         self.transition_to(PatrolState.PATROLLING)
         self.send_next_waypoint()
 
@@ -187,6 +221,7 @@ class PatrolManager(Node):
         if result.status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info(f'Arrived at waypoint [{self.current_wp_index}]')
             self.current_wp_index = (self.current_wp_index + 1) % len(WAYPOINTS)    # waypoint 순환
+            self.publish_current_wp()
             self.send_next_waypoint()
         else: 
             self.get_logger().info(f'Failed to arrive at waypoint [{self.current_wp_index}]')

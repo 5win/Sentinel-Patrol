@@ -80,12 +80,54 @@
 
     let robot = null;
     let plan = null;
+    let waypoints = null;
+    let currentWp = -1;
 
     // World (meters) → canvas pixel. ROS y goes up, canvas y goes down → flip.
     function worldToPixel(wx, wy) {
       const px = (wx - cfg.origin.x) / cfg.resolution;
       const py = cfg.height - (wy - cfg.origin.y) / cfg.resolution;
       return [px, py];
+    }
+
+    function drawWaypoints() {
+      if (!waypoints || waypoints.length === 0) return;
+
+      // Dashed line connecting waypoints in order, closing the loop
+      ctx.strokeStyle = 'rgba(255, 200, 100, 0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      for (let i = 0; i < waypoints.length; i++) {
+        const [px, py] = worldToPixel(waypoints[i].x, waypoints[i].y);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      const [px0, py0] = worldToPixel(waypoints[0].x, waypoints[0].y);
+      ctx.lineTo(px0, py0);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Numbered markers; current target highlighted
+      for (let i = 0; i < waypoints.length; i++) {
+        const [px, py] = worldToPixel(waypoints[i].x, waypoints[i].y);
+        const isCurrent = (i === currentWp);
+        const r = isCurrent ? 11 : 7;
+
+        ctx.fillStyle = isCurrent ? '#ffa040' : '#ffd780';
+        ctx.strokeStyle = '#442200';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#1a1a1a';
+        ctx.font = `bold ${isCurrent ? 12 : 10}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(i + 1), px, py);
+      }
     }
 
     function drawPlan() {
@@ -130,6 +172,7 @@
       if (!mapReady) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(mapImg, 0, 0);
+      drawWaypoints();
       drawPlan();
       drawRobot();
     }
@@ -159,6 +202,12 @@
         } else if (msg.type === 'state') {
           stateEl.textContent = msg.data;
           stateEl.className = msg.data.toLowerCase();
+        } else if (msg.type === 'waypoints') {
+          waypoints = msg.data;
+          render();
+        } else if (msg.type === 'current_wp') {
+          currentWp = msg.data;
+          render();
         }
       };
     }
