@@ -165,7 +165,7 @@ def generate_launch_description():
         IncludeLaunchDescription(
             # PythonLaunchDescriptionSource(os.path.join(launch_dir, 'navigation_launch.py')),
             PythonLaunchDescriptionSource(os.path.join(os.path.join(
-                get_package_share_directory('patrol_sensors'),
+                get_package_share_directory('patrol_bringup'),
                 'launch'), 
                 'navigation_launch.py')),
             launch_arguments={'namespace': namespace,
