@@ -1,6 +1,10 @@
 import math
+import os
 from typing import Optional
 
+import yaml
+
+from ament_index_python import get_package_share_directory
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
@@ -19,7 +23,6 @@ from std_msgs.msg import String, Int32
 from enum import Enum, auto
 
 from patrol_manager.constants import (
-    WAYPOINTS,
     TIMER_PERIOD_SEC,
     EMERGENCY_TIMEOUT_SEC,
     SAFE_CONFIRM_SEC,
@@ -119,21 +122,48 @@ class PatrolManager(Node):
         # set timer
         self.timer = self.create_timer(TIMER_PERIOD_SEC, self.timer_callback)
 
+        # waypoint YAML 경로
+        self.declare_parameter('waypoints_file', '')
+        waypoints_file = (
+            self.get_parameter('waypoints_file')
+            .get_parameter_value()
+            .string_value
+        )
+        if not waypoints_file:
+            waypoints_file = os.path.join(
+                get_package_share_directory('patrol_manager'),
+                'config',
+                'waypoints.yaml',
+            )
+        self.waypoints_file: str = os.path.expanduser(waypoints_file)
+        self.waypoints: list[tuple[float, float, float]] = self._load_waypoints(self.waypoints_file)
+            
+
+        # start
         self.get_logger().info(f'Patrol manager started in {self.state} state')
 
         # 웨이포인트 목록 1회 publish (latched QoS이므로 이후 구독자는 자동 수신)
         self.publish_waypoints()
 
         self.start_patrol()
+    
+    def _load_waypoints(self, path: str) -> list[tuple[float, float, float]]:
+        with open(path, 'r') as f:
+            data = yaml.safe_load(f) or {}
+        result: list[tuple[float, float, float]] = []
+        for wp in data.get('waypoints', []):
+            result.append((float(wp['x']), float(wp['y']), float(wp['yaw'])))
+        self.get_logger().info(f'Loaded {len(result)} waypoints from {path}')
+        return result
 
     def publish_waypoints(self):
         msg = PoseArray()
         msg.header.frame_id = 'map'
         msg.header.stamp = self.get_clock().now().to_msg()
-        for x, y, yaw in WAYPOINTS:
-            msg.poses.append(make_pose(x, y, yaw).pose)
+        msg.poses = [make_pose(x, y, yaw).pose for x, y, yaw in self.waypoints]
+
         self.waypoints_publisher.publish(msg)
-        self.get_logger().info(f'Published {len(WAYPOINTS)} waypoints')
+        self.get_logger().info(f'Published {len(self.waypoints)} waypoints')
 
     def publish_current_wp(self):
         self.current_wp_publisher.publish(Int32(data=self.current_wp_index))
@@ -180,7 +210,7 @@ class PatrolManager(Node):
     def send_next_waypoint(self):
 
         # 다음 waypoint goal 메시지 생성
-        x, y, yaw = WAYPOINTS[self.current_wp_index]
+        x, y, yaw = self.waypoints[self.current_wp_index]
         goal_msg = NavigateToPose.Goal()
         goal_msg.pose = make_pose(x, y, yaw)
         
@@ -220,7 +250,7 @@ class PatrolManager(Node):
         
         if result.status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info(f'Arrived at waypoint [{self.current_wp_index}]')
-            self.current_wp_index = (self.current_wp_index + 1) % len(WAYPOINTS)    # waypoint 순환
+            self.current_wp_index = (self.current_wp_index + 1) % len(self.waypoints)    # waypoint 순환
             self.publish_current_wp()
             self.send_next_waypoint()
         else: 
@@ -304,7 +334,7 @@ class PatrolManager(Node):
 
 
     def timer_callback(self):
-        self.get_logger().info(f'Current state: {self.state} | WP: {self.current_wp_index}/{len(WAYPOINTS)}', throttle_duration_sec=1.5)
+        self.get_logger().info(f'Current state: {self.state} | WP: {self.current_wp_index}/{len(self.waypoints)}', throttle_duration_sec=1.5)
 
         # 상태 publish
         self.patrol_state_publisher.publish(String(data=self.state.name))

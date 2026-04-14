@@ -81,3 +81,9 @@ data/
 outputs/
 results/
 edge_cases/
+
+# =========================
+# Dashboard generated map files
+# =========================
+fleet/frontend/dashboard/map.png
+fleet/frontend/dashboard/map_config.js

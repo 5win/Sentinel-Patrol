@@ -2,6 +2,9 @@
 
 # Sentinel Robotics - Launch Patrol nodes in separate terminal windows
 
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WAYPOINTS_FILE="$PROJECT_DIR/src/patrol_manager/config/waypoints.yaml"
+
 TERM_CMD=""
 
 if command -v gnome-terminal &> /dev/null; then
@@ -47,6 +50,6 @@ launch_in_terminal "Patrol Safety Gate" \
 
 # 3. Patrol Manager
 launch_in_terminal "Patrol Manager" \
-    "ros2 run patrol_manager patrol_manager"
+    "ros2 run patrol_manager patrol_manager --ros-args -p waypoints_file:=$WAYPOINTS_FILE"
 
 echo "Patrol nodes launched."
