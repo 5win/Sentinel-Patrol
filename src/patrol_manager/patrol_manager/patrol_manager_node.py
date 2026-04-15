@@ -80,7 +80,7 @@ class PatrolManager(Node):
         # subscriber
         self.create_subscription(
             FrontScan,
-            '/front_scan',
+            'front_scan',
             self.front_scan_callback,
             10
         )
@@ -88,13 +88,13 @@ class PatrolManager(Node):
         # publisher
         self.cmd_vel_manager_publisher = self.create_publisher(
             Twist,
-            '/cmd_vel_manager',
+            'cmd_vel_manager',
             10
         )
 
         self.patrol_state_publisher = self.create_publisher(
             String,
-            '/patrol/state',
+            'patrol/state',
             10
         )
 
@@ -106,12 +106,12 @@ class PatrolManager(Node):
         )
         self.waypoints_publisher = self.create_publisher(
             PoseArray,
-            '/patrol/waypoints',
+            'patrol/waypoints',
             latching_qos,
         )
         self.current_wp_publisher = self.create_publisher(
             Int32,
-            '/patrol/current_waypoint',
+            'patrol/current_waypoint',
             10,
         )
 

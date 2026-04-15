@@ -19,14 +19,14 @@ class ScanLogger(Node):
         # subscriber
         self.scan_subscription = self.create_subscription(
             LaserScan,
-            '/scan',
+            'scan',
             self.scan_callback,
             10,
         )
 
         self.odom_subscription = self.create_subscription(
             Odometry,
-            '/odom',
+            'odom',
             self.odom_callback,
             1, 
         )
@@ -34,7 +34,7 @@ class ScanLogger(Node):
         # publisher
         self.front_scan_publisher = self.create_publisher(
             FrontScan,
-            '/front_scan',
+            'front_scan',
             3,
         )
 

@@ -14,21 +14,21 @@ class PatrolSafetyGate(Node):
         # subscriber
         self.create_subscription(
             Twist,
-            '/cmd_vel_raw',
+            'cmd_vel_raw',
             self.cmd_vel_raw_callback,
             10
         )
 
         self.create_subscription(
             Twist,
-            '/cmd_vel_manager',
+            'cmd_vel_manager',
             self.cmd_vel_manager_callback,
             10
         )
 
         self.create_subscription(
             String,
-            '/patrol/state',
+            'patrol/state',
             self.patrol_state_callback,
             10
         )
@@ -36,7 +36,7 @@ class PatrolSafetyGate(Node):
         # publisher
         self.cmd_vel_publisher = self.create_publisher(
             Twist,
-            '/cmd_vel',
+            'cmd_vel',
             10
         )
 

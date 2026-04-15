@@ -24,7 +24,7 @@ class VisionNode(Node):
         # subscriber
         self.create_subscription(
             Image,
-            '/camera/image_raw',
+            'camera/image_raw',
             self.image_callback,
             10
         )
@@ -32,7 +32,7 @@ class VisionNode(Node):
         # publisher
         self.detections_publisher = self.create_publisher(
             Detections,
-            '/detections',
+            'detections',
             10
         )
 
