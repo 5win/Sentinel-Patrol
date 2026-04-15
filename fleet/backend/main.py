@@ -13,8 +13,8 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile
 from std_msgs.msg import Int32, String
 
-DASHBOARD_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "frontend", "dashboard")
+FRONTEND_DIST_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 )
 
 
@@ -209,4 +209,4 @@ async def ws_endpoint(ws: WebSocket) -> None:
         manager.disconnect(ws)
 
 
-app.mount("/", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
+app.mount("/", StaticFiles(directory=FRONTEND_DIST_DIR, html=True), name="frontend")

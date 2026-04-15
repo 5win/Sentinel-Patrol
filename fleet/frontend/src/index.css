@@ -1,0 +1,336 @@
+/* ============================================================
+   Sentinel Patrol Dashboard — Global Styles
+   Design tokens from fleet/docs/02-ui-ux-design.md
+   ============================================================ */
+
+/* ── Google Fonts fallback (loaded via index.html <link>) ── */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap');
+
+/* ── Design Tokens ─────────────────────────────────────────── */
+
+:root {
+  /* Background */
+  --bg-base:      oklch(0.10 0.005 240);
+  --bg-surface:   oklch(0.14 0.006 240);
+  --bg-elevated:  oklch(0.18 0.007 240);
+  --bg-overlay:   oklch(0.22 0.008 240);
+
+  /* Foreground */
+  --fg-primary:   oklch(0.93 0.010 240);
+  --fg-secondary: oklch(0.72 0.015 240);
+  --fg-muted:     oklch(0.52 0.012 240);
+  --fg-disabled:  oklch(0.38 0.008 240);
+
+  /* Border */
+  --border-subtle:  oklch(0.24 0.010 240);
+  --border-default: oklch(0.32 0.012 240);
+  --border-strong:  oklch(0.44 0.015 240);
+  --border-focus:   oklch(0.78 0.17 70);
+
+  /* Accent (Amber) */
+  --accent:        oklch(0.78 0.17 70);
+  --accent-dim:    oklch(0.60 0.14 70);
+  --accent-subtle: oklch(0.20 0.06 70);
+  --accent-fg:     oklch(0.10 0.005 240);
+
+  /* Status */
+  --status-idle:        oklch(0.55 0.010 240);
+  --status-idle-bg:     oklch(0.18 0.008 240);
+
+  --status-ok:          oklch(0.72 0.18 145);
+  --status-ok-bg:       oklch(0.16 0.06 145);
+
+  --status-warn:        oklch(0.78 0.17 70);
+  --status-warn-bg:     oklch(0.18 0.07 70);
+
+  --status-crit:        oklch(0.65 0.24 25);
+  --status-crit-bg:     oklch(0.16 0.09 25);
+
+  --status-avoid:       oklch(0.74 0.18 45);
+  --status-avoid-bg:    oklch(0.17 0.07 45);
+
+  --status-return:      oklch(0.72 0.15 225);
+  --status-return-bg:   oklch(0.16 0.06 225);
+
+  /* Connection */
+  --status-connected:    var(--status-ok);
+  --status-disconnected: var(--status-crit);
+  --status-connecting:   oklch(0.60 0.12 55);
+  --status-connecting-bg: oklch(0.17 0.05 55);
+
+  /* Spacing */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radius */
+  --radius-sm:   3px;
+  --radius-base: 6px;
+  --radius-lg:   8px;
+  --radius-full: 999px;
+
+  /* Typography */
+  --font-ui:   'Geist', 'DM Sans', sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Motion */
+  --duration-instant:  80ms;
+  --duration-fast:    120ms;
+  --duration-base:    180ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:  cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── App Shell ─────────────────────────────────────────────── */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100vh;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+
+.header {
+  height: 48px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  gap: var(--space-6);
+  flex-shrink: 0;
+}
+
+.header__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.header__logo {
+  flex-shrink: 0;
+}
+
+.header__title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  color: var(--fg-primary);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.header__indicators {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.header__pose {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--fg-secondary);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+/* ── WebSocket status badge ────────────────────────────────── */
+
+.ws-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+.ws-badge__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.ws-badge--connected {
+  color: var(--status-ok);
+  background: var(--status-ok-bg);
+}
+.ws-badge--connected .ws-badge__dot {
+  background: var(--status-ok);
+}
+
+.ws-badge--connecting {
+  color: var(--status-connecting);
+  background: var(--status-connecting-bg);
+}
+.ws-badge--connecting .ws-badge__dot {
+  background: var(--status-connecting);
+  animation: pulse-dot 1.25s ease-in-out infinite;
+}
+
+.ws-badge--disconnected {
+  color: var(--status-crit);
+  background: var(--status-crit-bg);
+}
+.ws-badge--disconnected .ws-badge__dot {
+  background: var(--status-crit);
+  animation: pulse-dot 1.25s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+/* ── State pill ────────────────────────────────────────────── */
+
+.state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+.state-pill::before {
+  content: '';
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.state-pill--idle {
+  color: var(--status-idle);
+  background: var(--status-idle-bg);
+}
+.state-pill--idle::before { background: var(--status-idle); }
+
+.state-pill--patrolling {
+  color: var(--status-ok);
+  background: var(--status-ok-bg);
+}
+.state-pill--patrolling::before { background: var(--status-ok); }
+
+.state-pill--wait {
+  color: var(--status-warn);
+  background: var(--status-warn-bg);
+}
+.state-pill--wait::before { background: var(--status-warn); }
+
+.state-pill--emergency {
+  color: var(--status-crit);
+  background: var(--status-crit-bg);
+  animation: emergency-pulse 1s ease-in-out infinite;
+}
+.state-pill--emergency::before { background: var(--status-crit); }
+
+@keyframes emergency-pulse {
+  0%, 100% { background: var(--status-crit-bg); }
+  50%       { background: oklch(0.20 0.12 25); }
+}
+
+.state-pill--avoiding {
+  color: var(--status-avoid);
+  background: var(--status-avoid-bg);
+}
+.state-pill--avoiding::before { background: var(--status-avoid); }
+
+.state-pill--returning {
+  color: var(--status-return);
+  background: var(--status-return-bg);
+}
+.state-pill--returning::before { background: var(--status-return); }
+
+/* ── Map area ──────────────────────────────────────────────── */
+
+.map-area {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  padding: var(--space-4);
+  overflow: auto;
+  background: var(--bg-base);
+}
+
+.map-canvas {
+  display: block;
+  background: #000;
+  border: 1px solid var(--border-default);
+  image-rendering: pixelated;
+  max-width: 100%;
+  height: auto;
+}
+
+/* ── No-config error ───────────────────────────────────────── */
+
+.no-config {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: var(--space-4);
+  background: var(--bg-base);
+  color: var(--status-crit);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.no-config strong {
+  color: var(--fg-primary);
+}
+
+.no-config code {
+  color: var(--accent);
+  background: var(--accent-subtle);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
