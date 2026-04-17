@@ -42,14 +42,14 @@ launch_in_terminal() {
 
 # 1. Scan Logger
 launch_in_terminal "Scan Logger" \
-    "ros2 run patrol_sensors scan_logger"
+    "ros2 run patrol_sensors scan_logger --ros-args -p use_sim_time:=True"
 
 # 2. Patrol Safety Gate
 launch_in_terminal "Patrol Safety Gate" \
-    "ros2 run patrol_sensors patrol_safety_gate"
+    "ros2 run patrol_sensors patrol_safety_gate --ros-args -p use_sim_time:=True"
 
 # 3. Patrol Manager
 launch_in_terminal "Patrol Manager" \
-    "ros2 run patrol_manager patrol_manager --ros-args -p waypoints_file:=$WAYPOINTS_FILE"
+    "ros2 run patrol_manager patrol_manager --ros-args -p use_sim_time:=True -p waypoints_file:=$WAYPOINTS_FILE"
 
 echo "Patrol nodes launched."
